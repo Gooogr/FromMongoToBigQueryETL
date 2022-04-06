@@ -1,0 +1,7 @@
+# sudo apt install build-essential
+pip install --upgrade pip # need beter than 20.0.0
+pymongo[srv]
+google-cloud-datastore
+google-cloud-storage
+google-cloud-bigquery
+tqdm
