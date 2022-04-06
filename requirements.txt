@@ -1,5 +1,7 @@
-# sudo apt install build-essential
-# make sure that your pip version >= 20.0.0
+## Install essential packages
+# sudo apt-get install python3-venv build-essential python3-dev git --yes
+## make sure that your pip version >= 20.0.0
+# pip install --upgrade pip
 cmake
 wheel
 pymongo[srv]
