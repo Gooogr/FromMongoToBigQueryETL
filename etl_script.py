@@ -13,6 +13,12 @@ from utils import (copy_json_to_storage,
 # connectors
 from utils import (connect_to_mongodb_database, connect_to_bigquery,
                    connect_to_google_storage_bucket)   
+### Select collections ####
+COLLECTION_NAMES = ['events', 'orderitems', 'orders',  'products', 
+                     'recurringcharges', 'sessions', 'shops', 'users']
+
+# If the collections fileds is unstable and we need refresh table structure every time      
+REDEFINE_SCHEMA = ['events']
 
 ### Set up logging ###
 logging.basicConfig(
@@ -158,10 +164,7 @@ def upload_table(collection, job_config):
     log.info(f"Delete {collection} temporary file") 
                                       
 ###------------------------------------------------------------------###        
-       
-collections_names = ['events', 'orderitems', 'orders',  'products', 
-                     'recurringcharges', 'sessions', 'shops', 'users']
-                     
+                            
 try:
     # Connect to services:
     print('Create MongoDB connection...')
@@ -174,9 +177,9 @@ try:
     log.info("Succesfully connect to BigQuery")
 
     # Perform ETL steps                                                                                                                                 
-    for collection in collections_names:
+    for collection in COLLECTION_NAMES:
         print(collection)
-        if collection == 'events':
+        if collection in REDEFINE_SCHEMA:
             log.info(f"Stage 1: create table schema for {collection}")
             week_ago_date = today_date = datetime.today() - timedelta(days=7)
             sample_filtering_query = {'createdAt': {'$gte': week_ago_date}} 
