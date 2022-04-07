@@ -31,7 +31,7 @@ log.info(f"START JOB")
 
 ### Read .env_connector parameters ###
 dir_path = os.path.dirname(os.path.realpath(__file__))
-env_path = os.path.join(dir_path, '.env_connector')                
+env_path = os.path.join(dir_path, '.env')                
 with open(env_path, 'r') as fh: 
     env_dict = dict(
         tuple(line.replace('\n', '').split('='))
