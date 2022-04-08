@@ -1,4 +1,5 @@
 import os
+import ast
 import json
 import logging
 from tqdm import tqdm
@@ -12,14 +13,9 @@ from utils import (copy_json_to_storage,
                    copy_data_from_storage_to_bigquery, delete_temp_file)                 
 # connectors
 from utils import (connect_to_mongodb_database, connect_to_bigquery,
-                   connect_to_google_storage_bucket)   
-### Select collections ####
-COLLECTION_NAMES = ['events', 'orderitems', 'orders',  'products', 
-                     'recurringcharges', 'sessions', 'shops', 'users']
-
-# If the collections fileds is unstable and we need refresh table structure every time      
-REDEFINE_SCHEMA = ['events']
-
+                   connect_to_google_storage_bucket)  
+                   
+                    
 ### Set up logging ###
 logging.basicConfig(
     filename="logger.log",
@@ -37,6 +33,13 @@ with open(env_path, 'r') as fh:
         tuple(line.replace('\n', '').split('='))
         for line in fh.readlines() if (not line.startswith('#')) and (line.strip())
                    )
+
+param2list = lambda x: ast.literal_eval(env_dict[x])                   
+
+COLLECTION_NAMES = param2list('COLLECTION_NAMES')
+EXCLUDE_FIELDS = {item: False for item in param2list('EXCLUDE_FIELDS')}
+FORCE_UPDATE_SCHEMA = param2list('FORCE_UPDATE_SCHEMA')
+
 
 # MongoDB 
 login = env_dict['LOGIN']
@@ -72,13 +75,14 @@ job_config_truncate_pre_configured = bigquery.LoadJobConfig(
     create_disposition="CREATE_IF_NEEDED",
     autodetect=False,
     ignore_unknown_values=True,
+    max_bad_records=1e3,
     # ~ schema_update_option="ALLOW_FIELD_ADDITION",
     source_format="NEWLINE_DELIMITED_JSON"
 )
                
 ###-------------------------Helper functions-------------------------###
            
-def save_data_from_mongo(collection_name, database, query={}):           # TODO: For some reason I can't use this function from utils.py. Fix it.
+def save_data_from_mongo(collection_name, database, query={}, projection=EXCLUDE_FIELDS):           
     '''
     Save MongoDB's collection to the JSON linearized format. 
     File name template: 'temp_{collection_name}.json'
@@ -92,10 +96,10 @@ def save_data_from_mongo(collection_name, database, query={}):           # TODO:
         None
     '''
     collection = database[collection_name]
-    table = collection.find(query)
-    with open(f'temp_{collection_name}.json', 'w') as out_jsonl:                  
+    table = collection.find(query, projection)
+    with open(f'temp_{collection_name}.json', 'w') as out_jsonl:  
             for x in tqdm(table, desc=collection_name):
-                    out_jsonl.write(json.dumps(x, default=str)+'\n') 
+                out_jsonl.write(json.dumps(x, default=str)+'\n') 
 
 def create_schema_with_sample(collection, sample_query):
     '''
@@ -179,10 +183,10 @@ try:
     # Perform ETL steps                                                                                                                                 
     for collection in COLLECTION_NAMES:
         print(collection)
-        if collection in REDEFINE_SCHEMA:
+        if collection in FORCE_UPDATE_SCHEMA:
             log.info(f"Stage 1: create table schema for {collection}")
-            week_ago_date = today_date = datetime.today() - timedelta(days=7)
-            sample_filtering_query = {'createdAt': {'$gte': week_ago_date}} 
+            back_date = today_date = datetime.today() - timedelta(days=7)
+            sample_filtering_query = {'createdAt': {'$gte': back_date}} 
             create_schema_with_sample(collection, sample_filtering_query)
             
             log.info(f"Stage 2: upload {collection}")
